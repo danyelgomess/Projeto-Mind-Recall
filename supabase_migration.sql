@@ -85,9 +85,19 @@ CREATE INDEX IF NOT EXISTS idx_pagamentos_status ON public.pagamentos (status);
 COMMENT ON TABLE  public.pagamentos                 IS 'Registros de pagamentos realizados pelos alunos';
 
 -- ============================================================
--- NOVA COLUNA: contrato_url (Armazenamento de Base64 / URL do Contrato)
+-- NOVA COLUNA: contrato_url e Dados do Aluno (Onboarding)
 -- ============================================================
 ALTER TABLE public.alunos ADD COLUMN IF NOT EXISTS contrato_url TEXT;
+
+ALTER TABLE public.alunos 
+ADD COLUMN IF NOT EXISTS telefone TEXT,
+ADD COLUMN IF NOT EXISTS telefone_secundario TEXT,
+ADD COLUMN IF NOT EXISTS email TEXT,
+ADD COLUMN IF NOT EXISTS cep TEXT,
+ADD COLUMN IF NOT EXISTS logradouro TEXT,
+ADD COLUMN IF NOT EXISTS numero TEXT,
+ADD COLUMN IF NOT EXISTS bairro TEXT,
+ADD COLUMN IF NOT EXISTS cidade_uf TEXT;
 
 -- Adiciona suporte a notas diretas por matrícula (Curso/Aluno)
 ALTER TABLE public.matriculas 
@@ -273,3 +283,4 @@ ON CONFLICT (aluno_id, curso_id) DO NOTHING;
 --    \d public.matriculas
 --    \d public.pagamentos
 -- ============================================================
+

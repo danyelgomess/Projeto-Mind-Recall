@@ -54,6 +54,7 @@
                     <li><button type="button" class="tablinks" onclick="openTab(event, 'secretaria')">Secretaria</button></li>
                     <li><button type="button" class="tablinks" onclick="openTab(event, 'cursos')">Cursos</button></li>
                     <li><button type="button" class="tablinks" onclick="openTab(event, 'diario')">Diário</button></li>
+                    <li><button type="button" class="tablinks" onclick="openTab(event, 'professores')">Professores</button></li>
                     <li><button type="button" class="tablinks admin-nav-item" onclick="openTab(event, 'financeiro')">💰 Financeiro</button></li>
                 </ul>
             </nav>
@@ -247,6 +248,14 @@
                             </div>
                         </div>
 
+                        <!-- Linha 3.5: Texto do Contrato -->
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
+                            <div class="input-group" style="margin-bottom: 0;">
+                                <label for="texto-contrato">Texto do Contrato:</label>
+                                <textarea id="texto-contrato" placeholder="Cole o contrato do curso aqui..." style="min-height: 100px; padding: 12px; border-radius: var(--r-md); border: 1px solid var(--border-color);"></textarea>
+                            </div>
+                        </div>
+
                         <!-- Linha 4: Botão Principal -->
                         <div class="form-actions" style="justify-content: flex-start;">
                             <button type="button" id="btn-matricular" style="background: var(--navy); color: var(--gold); border-radius: var(--r-md); padding: 12px 28px; font-weight: 700; border: none; cursor: pointer; font-size: 1em; transition: 0.2s;">Efetivar Matrícula</button>
@@ -365,6 +374,31 @@
                         </thead>
                         <tbody id="lista-diario"></tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Aba Professores -->
+            <div id="professores" class="tabcontent">
+                <h2>Professores — Disparo de Avisos</h2>
+                <div class="form-section">
+                    <h3>Novo Aviso</h3>
+                    <form id="form-aviso" class="form-grid">
+                        <div class="input-group">
+                            <label for="aviso-titulo">Título do Aviso:</label>
+                            <input type="text" id="aviso-titulo" placeholder="Ex: Mudança de Sala" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="aviso-ra">RA do Aluno Destino:</label>
+                            <input type="text" id="aviso-ra" placeholder="RA do Aluno" required>
+                        </div>
+                        <div class="input-group" style="grid-column: 1 / -1;">
+                            <label for="aviso-mensagem">Mensagem:</label>
+                            <textarea id="aviso-mensagem" placeholder="Digite o aviso aqui..." style="min-height: 100px; padding: 12px; border-radius: var(--r-md); border: 1px solid var(--border-color);" required></textarea>
+                        </div>
+                        <div class="form-actions" style="justify-content: flex-start; grid-column: 1 / -1;">
+                            <button type="button" id="btn-salvar-aviso" style="background: var(--navy); color: var(--gold); border-radius: var(--r-md); padding: 12px 28px; font-weight: 700; border: none; cursor: pointer; font-size: 1em; transition: 0.2s;">Disparar Aviso</button>
+                        </div>
+                    </form>
                 </div>
             </div>
 

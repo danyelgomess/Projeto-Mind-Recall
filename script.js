@@ -244,17 +244,17 @@ async function carregarCursos() {
         const totalCursosEl = document.getElementById('total-cursos');
         if (totalCursosEl) totalCursosEl.textContent = listaCursos.length;
 
-    // Renderiza tabela de cursos
-    const tbody = document.getElementById('lista-cursos');
-    if (tbody) {
-        tbody.innerHTML = '';
-        listaCursos.forEach(curso => {
-            const disciplinasTexto = curso.disciplinas && curso.disciplinas.length > 0
-                ? curso.disciplinas.map(d => `${d.nome} (${d.carga_horaria}h)`).join(', ')
-                : '<em>Nenhuma</em>';
+        // Renderiza tabela de cursos
+        const tbody = document.getElementById('lista-cursos');
+        if (tbody) {
+            tbody.innerHTML = '';
+            listaCursos.forEach(curso => {
+                const disciplinasTexto = curso.disciplinas && curso.disciplinas.length > 0
+                    ? curso.disciplinas.map(d => `${d.nome} (${d.carga_horaria}h)`).join(', ')
+                    : '<em>Nenhuma</em>';
 
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
                 <td>${curso.nome}</td>
                 <td>${curso.duracao}</td>
                 <td>${disciplinasTexto}</td>
@@ -263,32 +263,32 @@ async function carregarCursos() {
                     <button type="button" class="btn-excluir" onclick="excluirCurso('${curso.id}')">Excluir</button>
                 </td>
             `;
-            tbody.appendChild(tr);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Atualiza todos os <select> de curso na página
+        const selectsIds = [
+            'curso-crm',
+            'curso-disciplina',
+            'curso-diario',
+            'curso-aluno-editar',
+            'fin-filtro-curso'
+        ].map(id => document.getElementById(id)).filter(Boolean);
+
+        const selectsClass = Array.from(document.querySelectorAll('.curso-select'));
+        const selects = [...selectsIds, ...selectsClass];
+
+        selects.forEach(select => {
+            if (!select) return;
+            while (select.options.length > 1) select.remove(1);
+            listaCursos.forEach(curso => {
+                const option = document.createElement('option');
+                option.value = curso.id;
+                option.text = curso.nome;
+                select.add(option);
+            });
         });
-    }
-
-    // Atualiza todos os <select> de curso na página
-    const selectsIds = [
-        'curso-crm',
-        'curso-disciplina',
-        'curso-diario',
-        'curso-aluno-editar',
-        'fin-filtro-curso'
-    ].map(id => document.getElementById(id)).filter(Boolean);
-
-    const selectsClass = Array.from(document.querySelectorAll('.curso-select'));
-    const selects = [...selectsIds, ...selectsClass];
-
-    selects.forEach(select => {
-        if (!select) return;
-        while (select.options.length > 1) select.remove(1);
-        listaCursos.forEach(curso => {
-            const option = document.createElement('option');
-            option.value = curso.id;
-            option.text = curso.nome;
-            select.add(option);
-        });
-    });
     } catch (e) {
         console.error('Erro ao carregar cursos:', e);
     }
@@ -418,7 +418,7 @@ async function matricularAluno() {
     try {
         const nome = document.getElementById('nome-aluno').value.trim();
         const cpf = document.getElementById('cpf-aluno').value.trim();
-        
+
         // Ler todos os cursos adicionados
         const cursosEntries = document.querySelectorAll('.curso-entry');
         const cursosSelecionados = [];
@@ -429,11 +429,11 @@ async function matricularAluno() {
             const cursoId = entry.querySelector('.curso-select').value;
             const turma = entry.querySelector('.turma-input').value.trim();
             const valor = parseMoeda(entry.querySelector('.valor-input').value);
-            
+
             const contratoInput = entry.querySelector('.contrato-input');
             const arquivoContrato = contratoInput && contratoInput.files[0] ? contratoInput.files[0] : null;
             let contratoBase64 = null;
-            
+
             if (arquivoContrato) {
                 try {
                     contratoBase64 = await new Promise((resolve, reject) => {
@@ -476,82 +476,85 @@ async function matricularAluno() {
             return;
         }
 
-    const dataMatricula = new Date().toISOString().split('T')[0];
+        const dataMatricula = new Date().toISOString().split('T')[0];
 
-    // Para legado, pegar dados do primeiro curso para salvar na tabela principal "alunos"
-    const primeiroCurso = cursosSelecionados[0];
-    const { data: cursoData } = await db
-        .from('cursos')
-        .select('nome')
-        .eq('id', primeiroCurso.cursoId)
-        .single();
+        // Para legado, pegar dados do primeiro curso para salvar na tabela principal "alunos"
+        const primeiroCurso = cursosSelecionados[0];
+        const { data: cursoData } = await db
+            .from('cursos')
+            .select('nome')
+            .eq('id', primeiroCurso.cursoId)
+            .single();
 
-    // 1. Insere o aluno
-    const { data: novoAluno, error: erroAluno } = await db
-        .from('alunos')
-        .insert({
-            nome,
-            cpf,
-            curso_id: primeiroCurso.cursoId,
-            curso_nome: cursoData ? cursoData.nome : '',
-            turma: primeiroCurso.turma,
-            valor: valorTotal,
-            forma_pagamento: formaPagamento,
-            data_matricula: dataMatricula,
-            criado_por: usuarioLogado.id
-        })
-        .select()
-        .single();
+        // 1. Insere o aluno
+        const { data: novoAluno, error: erroAluno } = await db
+            .from('alunos')
+            .insert({
+                nome,
+                cpf,
+                curso_id: primeiroCurso.cursoId,
+                curso_nome: cursoData ? cursoData.nome : '',
+                turma: primeiroCurso.turma,
+                valor: valorTotal,
+                forma_pagamento: formaPagamento,
+                data_matricula: dataMatricula,
+                criado_por: usuarioLogado.id
+            })
+            .select()
+            .single();
 
-    if (erroAluno) {
-        mostrarAlerta(`Erro ao matricular aluno: ${erroAluno.message}`);
-        return;
-    }
-
-    // 2. Insere na tabela matriculas e cria notas
-    for (const item of cursosSelecionados) {
-        const { error: erroMatricula } = await db.from('matriculas').insert({
-            aluno_id: novoAluno.id,
-            curso_id: item.cursoId,
-            turma: item.turma,
-            contrato_url: item.contratoBase64,
-            data_matricula: dataMatricula,
-            criado_por: usuarioLogado.id
-        });
-        if (erroMatricula) console.warn('Aviso ao inserir em matriculas:', erroMatricula.message);
-
-    }
-
-    // 3. Insere as parcelas na tabela financeiro (usando o valorTotal dos cursos)
-    const parcelas = gerarParcelas(valorTotal, numeroParcelas, dataMatricula, novoAluno.id);
-
-    if (parcelas.length > 0) {
-        const { error: erroFin } = await db.from('financeiro').insert(parcelas);
-        if (erroFin) {
-            console.error('Erro ao gerar parcelas:', erroFin);
+        if (erroAluno) {
+            mostrarAlerta(`Erro ao matricular aluno: ${erroAluno.message}`);
+            return;
         }
-    }
 
-    // Lançamento Automático se for "À Vista"
-    if (formaPagamento === 'a-vista') {
-        const metodo = document.getElementById('metodo-pagamento').value;
-        const { error: erroPag } = await db.from('pagamentos').insert({
-            aluno_id: novoAluno.id,
-            curso_id: primeiroCurso.cursoId,
-            valor_pago: valorTotal,
-            forma_pagamento: metodo,
-            status: 'Pago',
-            data_pagamento: dataMatricula,
-            criado_por: usuarioLogado.id
-        });
-        if (erroPag) console.error('Erro ao lançar pagamento à vista:', erroPag);
-    }
+        // 2. Insere na tabela matriculas e cria notas
+        const textoContrato = document.getElementById('texto-contrato') ? document.getElementById('texto-contrato').value.trim() : null;
 
-    // 4. Limpeza da UI
-    document.getElementById('form-secretaria').reset();
-    document.getElementById('parcelas-container').style.display = 'none';
-    document.getElementById('metodo-pagamento-container').style.display = 'flex';
-    
+        for (const item of cursosSelecionados) {
+            const { error: erroMatricula } = await db.from('matriculas').insert({
+                aluno_id: novoAluno.id,
+                curso_id: item.cursoId,
+                turma: item.turma,
+                texto_contrato: textoContrato,
+                contrato_url: item.contratoBase64,
+                data_matricula: dataMatricula,
+                criado_por: usuarioLogado.id
+            });
+            if (erroMatricula) console.warn('Aviso ao inserir em matriculas:', erroMatricula.message);
+
+        }
+
+        // 3. Insere as parcelas na tabela financeiro (usando o valorTotal dos cursos)
+        const parcelas = gerarParcelas(valorTotal, numeroParcelas, dataMatricula, novoAluno.id);
+
+        if (parcelas.length > 0) {
+            const { error: erroFin } = await db.from('financeiro').insert(parcelas);
+            if (erroFin) {
+                console.error('Erro ao gerar parcelas:', erroFin);
+            }
+        }
+
+        // Lançamento Automático se for "À Vista"
+        if (formaPagamento === 'a-vista') {
+            const metodo = document.getElementById('metodo-pagamento').value;
+            const { error: erroPag } = await db.from('pagamentos').insert({
+                aluno_id: novoAluno.id,
+                curso_id: primeiroCurso.cursoId,
+                valor_pago: valorTotal,
+                forma_pagamento: metodo,
+                status: 'Pago',
+                data_pagamento: dataMatricula,
+                criado_por: usuarioLogado.id
+            });
+            if (erroPag) console.error('Erro ao lançar pagamento à vista:', erroPag);
+        }
+
+        // 4. Limpeza da UI
+        document.getElementById('form-secretaria').reset();
+        document.getElementById('parcelas-container').style.display = 'none';
+        document.getElementById('metodo-pagamento-container').style.display = 'flex';
+
         // Remove os cursos adicionais, deixando apenas o original limpo
         const container = document.getElementById('cursos-container');
         const extraEntries = container.querySelectorAll('.curso-entry:not(:first-child)');
@@ -597,58 +600,57 @@ async function carregarAlunos() {
             .order('criado_em', { ascending: false });
 
         if (error) throw error;
-        
+
         const listaAlunos = alunos || [];
 
         // Atualiza contador do dashboard
         const totalAlunosEl = document.getElementById('total-alunos');
         if (totalAlunosEl) totalAlunosEl.textContent = listaAlunos.length;
 
-    // ── Tabela CRM ──────────────────────────────────────────
-    const tbodyCrm = document.getElementById('lista-alunos');
-    const filtroCursoEl = document.getElementById('curso-crm');
+        // ── Tabela CRM ──────────────────────────────────────────
+        const tbodyCrm = document.getElementById('lista-alunos');
+        const filtroCursoEl = document.getElementById('curso-crm');
 
-    if (tbodyCrm) {
-        tbodyCrm.innerHTML = '';
-        const filtroCurso = filtroCursoEl ? filtroCursoEl.value : '';
-        const filtroTurmaEl = document.getElementById('turma-crm');
-        const filtroTurma = filtroTurmaEl ? filtroTurmaEl.value.toLowerCase() : '';
+        if (tbodyCrm) {
+            tbodyCrm.innerHTML = '';
+            const filtroCurso = filtroCursoEl ? filtroCursoEl.value : '';
+            const filtroTurmaEl = document.getElementById('turma-crm');
+            const filtroTurma = filtroTurmaEl ? filtroTurmaEl.value.toLowerCase() : '';
 
-        const filtrados = listaAlunos.filter(a => {
-            const noLegado = a.curso_id === filtroCurso;
-            const nasMatriculas = (a.matriculas || []).some(m => m.curso_id === filtroCurso);
-            const matchCurso = !filtroCurso || noLegado || nasMatriculas;
-            
-            const matchTurma = !filtroTurma || 
-                (a.turma && a.turma.toLowerCase().includes(filtroTurma)) || 
-                (a.nome && a.nome.toLowerCase().includes(filtroTurma)) ||
-                (a.ra && String(a.ra).includes(filtroTurma));
-            
-            return matchCurso && matchTurma;
-        });
+            const filtrados = listaAlunos.filter(a => {
+                const noLegado = a.curso_id === filtroCurso;
+                const nasMatriculas = (a.matriculas || []).some(m => m.curso_id === filtroCurso);
+                const matchCurso = !filtroCurso || noLegado || nasMatriculas;
 
-        filtrados.forEach(aluno => {
-            const parcelas = aluno.financeiro || [];
-            let statusParcelas = 'Sem Boletos';
+                const matchTurma = !filtroTurma ||
+                    (a.turma && a.turma.toLowerCase().includes(filtroTurma)) ||
+                    (a.nome && a.nome.toLowerCase().includes(filtroTurma)) ||
+                    (a.ra && String(a.ra).includes(filtroTurma));
 
-            if (parcelas.length > 0) {
-                statusParcelas = parcelas.every(p => p.paga) ? 'Quitado' : 'Inadimplente';
-            }
+                return matchCurso && matchTurma;
+            });
 
-            // Monta chips de cursos (via tabela matriculas)
-            const matriculas = aluno.matriculas || [];
-            let cursosHtml;
-            if (matriculas.length > 0) {
-                cursosHtml = `<div class="cursos-chips">${
-                    matriculas.map(m => `<span class="curso-chip">${m.cursos ? m.cursos.nome : '-'}</span>`).join('')
-                }</div>`;
-            } else {
-                cursosHtml = aluno.curso_nome || '-';
-            }
+            filtrados.forEach(aluno => {
+                const parcelas = aluno.financeiro || [];
+                let statusParcelas = 'Sem Boletos';
 
-            const tr = document.createElement('tr');
-            const raText = aluno.ra ? ` - RA: ${aluno.ra}` : '';
-            tr.innerHTML = `
+                if (parcelas.length > 0) {
+                    statusParcelas = parcelas.every(p => p.paga) ? 'Quitado' : 'Inadimplente';
+                }
+
+                // Monta chips de cursos (via tabela matriculas)
+                const matriculas = aluno.matriculas || [];
+                let cursosHtml;
+                if (matriculas.length > 0) {
+                    cursosHtml = `<div class="cursos-chips">${matriculas.map(m => `<span class="curso-chip">${m.cursos ? m.cursos.nome : '-'}</span>`).join('')
+                        }</div>`;
+                } else {
+                    cursosHtml = aluno.curso_nome || '-';
+                }
+
+                const tr = document.createElement('tr');
+                const raText = aluno.ra ? ` - RA: ${aluno.ra}` : '';
+                tr.innerHTML = `
                 <td><strong>${aluno.nome}</strong><span style="color:var(--txt-light); font-size: 0.85em;">${raText}</span></td>
                 <td>${aluno.cpf || '-'}</td>
                 <td>${cursosHtml}</td>
@@ -658,36 +660,35 @@ async function carregarAlunos() {
                     <button type="button" class="btn-action" onclick="abrirModalAluno('${aluno.id}')">Abrir Ficha</button>
                 </td>
             `;
-            tbodyCrm.appendChild(tr);
-        });
-    }
+                tbodyCrm.appendChild(tr);
+            });
+        }
 
-    // ── Tabela Secretaria ────────────────────────────────────
-    const tbodySecretaria = document.getElementById('lista-secretaria-alunos');
+        // ── Tabela Secretaria ────────────────────────────────────
+        const tbodySecretaria = document.getElementById('lista-secretaria-alunos');
 
-    if (tbodySecretaria) {
-        tbodySecretaria.innerHTML = '';
-        alunos.forEach(aluno => {
-            let dataFormatada = '-';
-            if (aluno.data_matricula) {
-                const partes = aluno.data_matricula.split('-');
-                if (partes.length === 3) dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
-            }
+        if (tbodySecretaria) {
+            tbodySecretaria.innerHTML = '';
+            alunos.forEach(aluno => {
+                let dataFormatada = '-';
+                if (aluno.data_matricula) {
+                    const partes = aluno.data_matricula.split('-');
+                    if (partes.length === 3) dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+                }
 
-            // Monta lista de cursos da secretaria
-            const matriculas = aluno.matriculas || [];
-            let cursosTexto;
-            if (matriculas.length > 0) {
-                cursosTexto = `<div class="cursos-chips">${
-                    matriculas.map(m => `<span class="curso-chip">${m.cursos ? m.cursos.nome : '-'}</span>`).join('')
-                }</div>`;
-            } else {
-                cursosTexto = aluno.curso_nome || '-';
-            }
+                // Monta lista de cursos da secretaria
+                const matriculas = aluno.matriculas || [];
+                let cursosTexto;
+                if (matriculas.length > 0) {
+                    cursosTexto = `<div class="cursos-chips">${matriculas.map(m => `<span class="curso-chip">${m.cursos ? m.cursos.nome : '-'}</span>`).join('')
+                        }</div>`;
+                } else {
+                    cursosTexto = aluno.curso_nome || '-';
+                }
 
-            const tr = document.createElement('tr');
-            const raText = aluno.ra ? ` - RA: ${aluno.ra}` : '';
-            tr.innerHTML = `
+                const tr = document.createElement('tr');
+                const raText = aluno.ra ? ` - RA: ${aluno.ra}` : '';
+                tr.innerHTML = `
                 <td><strong>${aluno.nome}</strong><span style="color:var(--txt-light); font-size: 0.85em;">${raText}</span></td>
                 <td>${aluno.cpf || '-'}</td>
                 <td>${cursosTexto}</td>
@@ -696,10 +697,10 @@ async function carregarAlunos() {
                     <button type="button" class="btn-excluir" onclick="excluirAluno('${aluno.id}')">Remover Aluno</button>
                 </td>
             `;
-            tbodySecretaria.appendChild(tr);
-        });
-    }
-    } catch(e) {
+                tbodySecretaria.appendChild(tr);
+            });
+        }
+    } catch (e) {
         console.error('Erro geral ao carregar alunos:', e);
     }
 }
@@ -752,12 +753,12 @@ async function abrirModalAluno(alunoId) {
                 const cursoNome = m.cursos ? m.cursos.nome : '-';
                 const div = document.createElement('div');
                 div.style = 'display: flex; justify-content: space-between; align-items: center; background: var(--panel-off); padding: 8px 12px; border-radius: var(--r-sm); border: 1px solid var(--panel-border);';
-                
+
                 let btnHtml = '';
                 if (m.contrato_url) {
                     btnHtml = `<button type="button" class="btn-action" style="font-size: 0.75em; padding: 4px 8px;" onclick="verContratoMatricula('${m.id}')">📄 Ver Contrato</button>`;
                 }
-                
+
                 div.innerHTML = `
                     <div style="display: flex; flex-direction: column;">
                         <strong style="color: var(--txt-dark); font-size: 0.9em;">${cursoNome}</strong>
@@ -879,7 +880,7 @@ async function darBaixaParcelaModal(parcelaId, btnElement) {
         if (parcela) {
             const valorParcela = parcela.valor || 0;
             const nomeCurso = alunoEditando.curso_nome || 'Curso';
-            
+
             const { error: erroPag } = await db.from('pagamentos').insert({
                 aluno_id: alunoEditando.id,
                 curso_id: alunoEditando.curso_id || null,
@@ -931,15 +932,15 @@ async function carregarAlunosDiario() {
         const { data: matriculas, error } = await query;
 
         if (error) throw error;
-        
+
         const listaMatriculas = matriculas || [];
 
         tbody.innerHTML = '';
-        
+
         const filtroTurmaEl = document.getElementById('turma-diario');
         const filtroTurma = filtroTurmaEl ? filtroTurmaEl.value.toLowerCase() : '';
 
-        const filtrados = filtroTurma 
+        const filtrados = filtroTurma
             ? listaMatriculas.filter(m => {
                 const nomeTurma = m.turma ? m.turma.toLowerCase() : '';
                 const nomeAluno = (m.alunos && m.alunos.nome) ? m.alunos.nome.toLowerCase() : '';
@@ -951,7 +952,7 @@ async function carregarAlunosDiario() {
         filtrados.forEach(m => {
             const nomeAluno = m.alunos ? m.alunos.nome : '-';
             const nomeCurso = m.cursos ? m.cursos.nome : '-';
-            
+
             const n1 = m.nota1 !== null && m.nota1 !== undefined ? m.nota1 : null;
             const n2 = m.nota2 !== null && m.nota2 !== undefined ? m.nota2 : null;
             const media = m.media !== null && m.media !== undefined ? m.media : null;
@@ -974,7 +975,7 @@ async function carregarAlunosDiario() {
             `;
             tbody.appendChild(tr);
         });
-    } catch(e) {
+    } catch (e) {
         console.error('Erro geral ao carregar alunos no diário:', e);
     }
 }
@@ -989,7 +990,7 @@ async function abrirModalNotas(matriculaId, nomeAluno, nomeCurso) {
 
     alunoNotasId = matriculaId; // Mantendo o mesmo nome de variável por legado para evitar crashes em outros lugares que possam usá-la
     document.getElementById('aluno-id-notas').value = matriculaId;
-    
+
     // Atualiza subtítulo do modal
     const subtitle = document.getElementById('notas-aluno-curso-subtitle');
     if (subtitle) {
@@ -1113,7 +1114,7 @@ async function carregarFinanceiro() {
         pagamentosCache = pagamentos || [];
         atualizarCardsPagamentos(pagamentosCache);
         renderizarTabelaPagamentos(pagamentosCache);
-    } catch(e) {
+    } catch (e) {
         console.error('Erro ao carregar pagamentos:', e);
         if (tbody) {
             tbody.innerHTML = `
@@ -1141,9 +1142,9 @@ function atualizarCardsPagamentos(lista) {
 
     const el = id => document.getElementById(id);
     if (el('fin-total-recebido')) el('fin-total-recebido').textContent = fmt(totalRecebido);
-    if (el('fin-total-count'))    el('fin-total-count').textContent = lista.length;
-    if (el('fin-total-pix'))      el('fin-total-pix').textContent = fmt(totalPix);
-    if (el('fin-total-cartao'))   el('fin-total-cartao').textContent = fmt(totalCartao);
+    if (el('fin-total-count')) el('fin-total-count').textContent = lista.length;
+    if (el('fin-total-pix')) el('fin-total-pix').textContent = fmt(totalPix);
+    if (el('fin-total-cartao')) el('fin-total-cartao').textContent = fmt(totalCartao);
 }
 
 /**
@@ -1167,7 +1168,7 @@ function renderizarTabelaPagamentos(lista) {
         const nomeCurso = pag.cursos ? pag.cursos.nome : '-';
         const valor = parseFloat(pag.valor_pago || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const data = pag.data_pagamento
-            ? (() => { const [y,m,d] = pag.data_pagamento.split('-'); return `${d}/${m}/${y}`; })()
+            ? (() => { const [y, m, d] = pag.data_pagamento.split('-'); return `${d}/${m}/${y}`; })()
             : '-';
 
         const tr = document.createElement('tr');
@@ -1178,7 +1179,7 @@ function renderizarTabelaPagamentos(lista) {
             <td>${getBadgeForma(pag.forma_pagamento)}</td>
             <td>${data}</td>
             <td>${getBadgeStatus(pag.status)}</td>
-            <td>${pag.observacao ? `<span title="${pag.observacao}" style="cursor:help">${pag.observacao.length > 30 ? pag.observacao.substring(0,30) + '...' : pag.observacao}</span>` : '<em style="color:var(--txt-light)">—</em>'}</td>
+            <td>${pag.observacao ? `<span title="${pag.observacao}" style="cursor:help">${pag.observacao.length > 30 ? pag.observacao.substring(0, 30) + '...' : pag.observacao}</span>` : '<em style="color:var(--txt-light)">—</em>'}</td>
             <td>
                 <button type="button" class="btn-excluir" onclick="excluirPagamento('${pag.id}')">Excluir</button>
             </td>
@@ -1190,12 +1191,12 @@ function renderizarTabelaPagamentos(lista) {
 /** Retorna badge HTML para forma de pagamento */
 function getBadgeForma(forma) {
     const mapa = {
-        'Pix':              { cls: 'badge-pix',           icone: '⚡' },
-        'Cartão de Crédito':{ cls: 'badge-cartao',        icone: '💳' },
-        'Cartão de Débito': { cls: 'badge-cartao',        icone: '💳' },
-        'Boleto':           { cls: 'badge-boleto',         icone: '🏦' },
-        'Dinheiro':         { cls: 'badge-dinheiro',       icone: '💵' },
-        'Transferência':    { cls: 'badge-transferencia',  icone: '🏛️' }
+        'Pix': { cls: 'badge-pix', icone: '⚡' },
+        'Cartão de Crédito': { cls: 'badge-cartao', icone: '💳' },
+        'Cartão de Débito': { cls: 'badge-cartao', icone: '💳' },
+        'Boleto': { cls: 'badge-boleto', icone: '🏦' },
+        'Dinheiro': { cls: 'badge-dinheiro', icone: '💵' },
+        'Transferência': { cls: 'badge-transferencia', icone: '🏛️' }
     };
     const info = mapa[forma] || { cls: '', icone: '' };
     return `<span class="${info.cls}">${info.icone} ${forma || '-'}</span>`;
@@ -1204,10 +1205,10 @@ function getBadgeForma(forma) {
 /** Retorna badge HTML para status do pagamento */
 function getBadgeStatus(status) {
     const mapa = {
-        'Pago':     { cls: 'badge-status-pago',      icone: '✅' },
-        'Pendente': { cls: 'badge-status-pendente',   icone: '⏳' },
-        'Atrasado': { cls: 'badge-status-atrasado',   icone: '🔴' },
-        'Cancelado':{ cls: 'badge-status-cancelado',  icone: '❌' }  // legado
+        'Pago': { cls: 'badge-status-pago', icone: '✅' },
+        'Pendente': { cls: 'badge-status-pendente', icone: '⏳' },
+        'Atrasado': { cls: 'badge-status-atrasado', icone: '🔴' },
+        'Cancelado': { cls: 'badge-status-cancelado', icone: '❌' }  // legado
     };
     const info = mapa[status] || { cls: '', icone: '' };
     return `<span class="${info.cls}">${info.icone} ${status || '-'}</span>`;
@@ -1358,14 +1359,14 @@ async function registrarPagamento() {
     // Lê o valor do campo mascarado e converte para float
     const valor = parseMoeda(document.getElementById('pag-valor').value);
     const forma = document.getElementById('pag-forma').value;
-    const data  = document.getElementById('pag-data').value;
+    const data = document.getElementById('pag-data').value;
     const status = document.getElementById('pag-status').value;
-    const obs   = document.getElementById('pag-obs').value.trim();
+    const obs = document.getElementById('pag-obs').value.trim();
 
     // Validações
     if (!alunoId) { mostrarAlerta('Selecione um aluno!'); return; }
-    if (!forma)   { mostrarAlerta('Selecione a forma de pagamento!'); return; }
-    if (!data)    { mostrarAlerta('Informe a data do pagamento!'); return; }
+    if (!forma) { mostrarAlerta('Selecione a forma de pagamento!'); return; }
+    if (!data) { mostrarAlerta('Informe a data do pagamento!'); return; }
     if (isNaN(valor) || valor <= 0) { mostrarAlerta('Informe um valor válido (maior que zero)!'); return; }
 
     // Estado de loading no botão
@@ -1375,14 +1376,14 @@ async function registrarPagamento() {
     btnSalvar.innerHTML = '<span class="spinner"></span> Salvando...';
 
     const { error } = await db.from('pagamentos').insert({
-        aluno_id:        alunoId,
-        curso_id:        cursoId || null,
-        valor_pago:      valor,
+        aluno_id: alunoId,
+        curso_id: cursoId || null,
+        valor_pago: valor,
         forma_pagamento: forma,
-        data_pagamento:  data,
-        status:          status,
-        observacao:      obs || null,
-        criado_por:      usuarioLogado.id
+        data_pagamento: data,
+        status: status,
+        observacao: obs || null,
+        criado_por: usuarioLogado.id
     });
 
     btnSalvar.disabled = false;
@@ -1472,7 +1473,7 @@ async function cadastrarProfessor() {
         return;
     }
 
-    const nome  = document.getElementById('prof-nome').value.trim();
+    const nome = document.getElementById('prof-nome').value.trim();
     const email = document.getElementById('prof-email').value.trim();
     const senha = document.getElementById('prof-senha').value;
 
@@ -1553,6 +1554,7 @@ function configurarEventos() {
     document.getElementById('btn-salvar-curso')?.addEventListener('click', salvarCurso);
     document.getElementById('btn-salvar-disciplina')?.addEventListener('click', salvarDisciplina);
     document.getElementById('btn-matricular')?.addEventListener('click', matricularAluno);
+    document.getElementById('btn-salvar-aviso')?.addEventListener('click', salvarAviso);
 
     document.getElementById('forma-pagamento')?.addEventListener('change', function () {
         const containerParcelas = document.getElementById('parcelas-container');
@@ -1563,7 +1565,7 @@ function configurarEventos() {
 
     document.getElementById('curso-crm')?.addEventListener('change', carregarAlunos);
     document.getElementById('turma-crm')?.addEventListener('input', carregarAlunos);
-    
+
     document.getElementById('curso-diario')?.addEventListener('change', carregarAlunosDiario);
     document.getElementById('turma-diario')?.addEventListener('input', carregarAlunosDiario);
 
@@ -1621,7 +1623,7 @@ function configurarEventos() {
 function adicionarLinhaCurso() {
     const container = document.getElementById('cursos-container');
     const template = container.querySelector('.curso-entry').cloneNode(true);
-    
+
     // Reseta valores e adiciona máscara
     template.querySelector('.curso-select').value = '';
     template.querySelector('.turma-input').value = '';
@@ -1630,7 +1632,7 @@ function adicionarLinhaCurso() {
     valorInput.addEventListener('input', function () {
         aplicarMascaraMoeda(this);
     });
-    
+
     // Adiciona botão de remover
     const btnRemover = document.createElement('button');
     btnRemover.type = 'button';
@@ -1642,4 +1644,48 @@ function adicionarLinhaCurso() {
     template.appendChild(btnRemover);
 
     container.appendChild(template);
+}
+
+// ==================== DISPARO DE AVISOS ====================
+async function salvarAviso() {
+    const btn = document.getElementById('btn-salvar-aviso');
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Disparando...';
+    }
+
+    try {
+        const titulo = document.getElementById('aviso-titulo').value.trim();
+        const aluno_ra = document.getElementById('aviso-ra').value.trim();
+        const mensagem = document.getElementById('aviso-mensagem').value.trim();
+
+        if (!titulo || !aluno_ra || !mensagem) {
+            mostrarAlerta('Por favor, preencha todos os campos do aviso.');
+            return;
+        }
+
+        const { error } = await db.from('avisos').insert({
+            titulo,
+            aluno_ra,
+            mensagem,
+            autor: usuarioLogado ? usuarioLogado.id : null
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        mostrarAlerta('Aviso disparado com sucesso!', 'Sucesso');
+        document.getElementById('form-aviso').reset();
+
+    } catch (e) {
+        console.error('Erro ao disparar aviso:', e);
+        mostrarAlerta('Ocorreu um erro ao disparar o aviso: ' + e.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
 }
